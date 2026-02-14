@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Uploads</title>
+</head>
+<body>
+    <h1>Uploads Page</h1>
+    <p>Welcome, {{ user.email }}!</p>
+    <p>This page is for uploading files.</p>
+    
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <input type="file" name="file">
+        <button type="submit">Upload</button>
+    </form>
+    
+    <h2>Recent Uploads</h2>
+    <ul>
+        <li>sample1.txt - Uploaded just now</li>
+        <li>sample2.txt - Uploaded yesterday</li>
+    </ul>
+</body>
+</html>
