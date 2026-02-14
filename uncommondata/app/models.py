@@ -36,7 +36,7 @@ class Upload(models.Model):
     
     file = models.FileField(upload_to = "uploads/")
     
-    uploaded_at = models.DateTimeRangeField(auto_now_add = True)
+    uploaded_at = models.DateTimeField(auto_now_add = True)
     
     def __str__(self):
         return f"{self.institution} {self.reporting_year} ({self.uploader})"
