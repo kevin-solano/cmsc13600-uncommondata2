@@ -13,7 +13,7 @@
     <form method="post" action="{% url 'login' %}">
         {% csrf_token %}
         <div>
-            <label for="id_username">Email:</label>
+            <label for="id_username">Username:</label>
             <input type="text" name="username" id="id_username" required>
         </div>
         <div>

@@ -20,33 +20,33 @@ def new_user(request):
 
 @csrf_exempt
 def create_user(request):
-    if request.method == 'POST':
-        try:
+    if request.method != 'POST':
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+        
             # Handle both JSON and form data
-            if request.content_type == 'application/json':
-                data = json.loads(request.body)
-                email = data.get('email')
-                password = data.get('password')
-            else:
-                email = request.POST.get('email')
-                password = request.POST.get('password')
-            
-            if not email or not password:
-                return JsonResponse({'error': 'Email and password required'}, status=400)
-            
-            # Check if user exists
-            if User.objects.filter(email=email).exists():
-                return JsonResponse({'error': 'Email already exists'}, status=400)
-            
-            # Create user
-            user = User.objects.create_user(username=email, email=email, password=password)
-            return JsonResponse({'message': 'User created successfully', 'id': user.id}, status=201)
+    if request.content_type == 'application/json':
+        try:
+            data = json.loads(request.body)
         except json.JSONDecodeError:
-            return JsonResponse({'error': 'Invalid JSON'}, status=400)
-        except Exception as e:
-            return JsonResponse({'error': str(e)}, status=400)
+            return JsonResponse({"error": "Invalid JSON"}, status=400)
     else:
-        return JsonResponse({'error': 'Method not allowed'}, status=405)
+        data = request.POST
+        
+    email = request.POST.get('email')
+    password = request.POST.get('password')
+    user_name = data.get('user_name')
+            
+    if not email or not password or not user_name:
+        return JsonResponse({'error': 'Missing requireed fields'}, status=400)
+            # Check if user exists
+    if User.objects.filter(username=user_name).exists():
+        return JsonResponse({'error': 'Username already exists'}, status=400)
+            
+    user = User.objects.create_user(username=user_name,
+                                    email=email,
+                                    password=password)
+    return JsonResponse({'message': 'User created successfully', 'id': user.id}, status=201)
+
 
 def current_time(request):
     return HttpResponse(f"Current time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
