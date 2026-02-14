@@ -9,6 +9,8 @@
     {% if user_name %}
         <p>Logged in as: {{ user_name }}</p>
     {% endif %}
+        <p>Not logged in</p>
+    {% endif %}
     
     <form method="POST" action="/app/api/createUser/">
         {% csrf_token %}

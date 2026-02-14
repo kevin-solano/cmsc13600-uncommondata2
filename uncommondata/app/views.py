@@ -4,6 +4,8 @@ from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from django.contrib.auth.models import User
 #from django.contrib.auth import login_required, login, authenticate
 import json
+from django.http import HttpResponseNotAllowed
+
 from datetime import datetime
 # Create your views here.
 
@@ -11,9 +13,9 @@ def hello_xyz(request):
     return render(request, 'app/hello.html')
 
 def new_user(request):
-    context = {}
-    if request.user.is_authenticated:
-        context['user_name'] = request.user.email
+    if request.method == 'POST':
+        return HttpResponseNotAllowed(['GET'])
+    context = {'user_name': request.user.email if request.user.is_authenticated else None}
     return render(request, 'app/new_user.html', context)
 
 @csrf_exempt
