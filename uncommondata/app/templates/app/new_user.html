@@ -6,6 +6,10 @@
 <body>
     <h1>Create New User</h1>
     
+    {% if user_name %}
+        <p>Logged in as: {{ user_name }}</p>
+    {% endif %}
+    
     <form method="POST" action="/app/api/createUser/">
         {% csrf_token %}
         <div>
