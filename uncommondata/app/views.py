@@ -20,9 +20,17 @@ def new_user(request):
 def create_user(request):
     if request.method == 'POST':
         try:
-            data = json.loads(request.body)
-            email = data.get('email')
-            password = data.get('password')
+            # Handle both JSON and form data
+            if request.content_type == 'application/json':
+                data = json.loads(request.body)
+                email = data.get('email')
+                password = data.get('password')
+            else:
+                email = request.POST.get('email')
+                password = request.POST.get('password')
+            
+            if not email or not password:
+                return JsonResponse({'error': 'Email and password required'}, status=400)
             
             # Check if user exists
             if User.objects.filter(email=email).exists():
@@ -30,7 +38,9 @@ def create_user(request):
             
             # Create user
             user = User.objects.create_user(username=email, email=email, password=password)
-            return JsonResponse({'message': 'User created successfully'}, status=201)
+            return JsonResponse({'message': 'User created successfully', 'id': user.id}, status=201)
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON'}, status=400)
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=400)
     else:
