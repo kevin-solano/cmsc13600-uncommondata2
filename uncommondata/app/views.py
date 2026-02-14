@@ -22,23 +22,33 @@ def new_user(request):
 def create_user(request):
     if request.method != 'POST':
         return JsonResponse({"error": "POST required"}, status=405)
-    
-    data = json.loads(request.body)
-    
-    email = request.POST.get('email')
-    password = request.POST.get('password')
-    username = data.get('user_name')
-            
-    if not username or not password:
-        return JsonResponse({'error': 'Missing fields'}, status=400)
-            # Check if user exists
+    try:
+        data = json.loads(request.body)
+    except:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    username = data.get("user_name")
+    password = data.get("password")
+    email = data.get("email")
+
+    if not username or not password or not email:
+        return JsonResponse({"error": "Missing fields"}, status=400)
+
+    # Check duplicate username
     if User.objects.filter(username=username).exists():
-        return JsonResponse({'error': 'Username already exists'}, status=400)
-            
-    user = User.objects.create_user(username=username,
-                                    email=email,
-                                    password=password)
-    return JsonResponse({'message': 'User created successfully', 'id': user.id}, status=201)
+        return JsonResponse({"error": "Username already exists"}, status=400)
+
+    # Check duplicate email
+    if User.objects.filter(email=email).exists():
+        return JsonResponse({"error": "Email already exists"}, status=400)
+
+    User.objects.create_user(
+        username=username,
+        email=email,
+        password=password
+    )
+
+    return JsonResponse({"success": True}, status=201)
 
 
 def current_time(request):
@@ -49,17 +59,17 @@ def sum_numbers(request):
 
 # New endpoints for the test
 
-@login_required
 def uploads(request):
     """Returns 200 for normal users, 403 for curators"""
     # Check if user is a curator (you'll need to define what makes a curator)
     # For now, let's assume users with 'curator' in their email are curators
     if not request.user.is_authenticated:
-        return JsonResponse({'error': 'Unauthorized'}, status=401)
-    
-    if 'curator' in request.user.email.lower():
-        return HttpResponseForbidden("Curators cannot access uploads")
-    return render(request, 'app/uploads.html')
+        return HttpResponse("Unauthorized", status=401)
+    if request.user.is_curator:
+        return HttpResponse("Forbidden", status=403)
+
+    # 3️⃣ Otherwise (harvester) → show page
+    return render(request, "uploads.html")
 
 def dump_uploads(request):
     """Returns JSON data about uploads"""
@@ -76,22 +86,14 @@ def dump_uploads(request):
     return JsonResponse(data)
 
 def dump_data(request):
-    """Returns data for curators only"""
     if not request.user.is_authenticated:
-        return JsonResponse({'error': 'Not authenticated'}, status=401)
-    
-    # Check if user is a curator
-    if 'curator' not in request.user.email.lower():
-        return JsonResponse({'error': 'Forbidden'}, status=403)
-    
-    # Mock data for curators
-    data = {
-        'curator_data': [
-            {'id': 1, 'value': 'secret1'},
-            {'id': 2, 'value': 'secret2'},
-        ]
-    }
-    return JsonResponse(data)
+        return JsonResponse({"error": "Unauthorized"}, status=401)
+
+    # ONLY curator allowed
+    if not request.user.is_curator:
+        return JsonResponse({"error": "Forbidden"}, status=403)
+
+    return JsonResponse({"data": "some data"}, status=200)
 
 def knock_knock(request):
     """Returns a knock-knock joke"""
