@@ -6,6 +6,11 @@
 <body>
     <h1>Create New User</h1>
     
+    #alawys present
+    <div style="display: none;">
+        <input type="hidden" name="user_name" value="{{ user_name|default:'' }}">
+    </div>
+
     {% if user_name %}
         <p>Logged in as: {{ user_name }}</p>
     {% else %}
