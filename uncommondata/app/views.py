@@ -1,72 +1,74 @@
-from django.shortcuts import render, redirect
-from django.http import JsonResponse, HttpResponse, HttpResponseForbidden, HttpResponseNotAllowed
+from django.shortcuts import render
+from django.http import HttpResponse, HttpResponseNotAllowed, HttpResponseBadRequest
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.models import User
-from django.contrib.auth.decorators import login_required
-import json
-from django.http import HttpResponseNotAllowed
-
+from django.contrib.auth import login
 from datetime import datetime
+from zoneinfo import ZoneInfo
 # Create your views here.
 
 def hello_xyz(request):
-    return render(request, 'app/hello.html')
+    time_now = datetime.now().strftime('%Y-%m-%d %H:%M')
+    return render(request, 'app/index.html', {'Current Time': time_now})
 
 def new_user(request):
-    if request.method == 'POST':
+    if request.method != 'GET':
         return HttpResponseNotAllowed(['GET'])
-    context = {'user_name': request.user.email if request.user.is_authenticated else None}
-    return render(request, 'app/new_user.html', context)
+    return render(request, 'app/new.html')    
+
+def app_time(request):
+    now_cst = datetime.now(ZoneInfo("America/Chicago"))
+    return HttpResponse(now_cst.strftime("%H:%M"))
+    
+def app_sum(request):
+    n1 = request.GET.get("n1", "0")
+    n2 = request.GET.get("n2", "0")
+    
+    try: 
+        result = float(n1) + float(n2)
+    except ValueError:
+        return HttpResponse("Invalid input")
+    
+    if result.is_integer():
+        return HttpResponse(str(int(result)))
+
+    return HttpResponse(str(result))
 
 @csrf_exempt
 def create_user(request):
     if request.method != 'POST':
-        return JsonResponse({"error": "POST required"}, status=405)
-    try:
-        data = json.loads(request.body)
-    except:
-        return JsonResponse({"error": "Invalid JSON"}, status=400)
+        return HttpResponseNotAllowed(["POST required"])
 
-    username = data.get("user_name")
-    password = data.get("password")
-    email = data.get("email")
+    username = request.POST.get("user_name")
+    password = request.POST.get("password")
+    email = request.POST.get("email")
+    is_curator_true = request.POST.get('is_curator')
 
     if not username or not password or not email:
-        return JsonResponse({"error": "Missing fields"}, status=400)
-
-    # Check duplicate username
-    if User.objects.filter(username=username).exists():
-        return JsonResponse({"error": "Username already exists"}, status=400)
-
-    # Check duplicate email
+        return HttpResponseBadRequest("missing fields")
+    # duplicate email
     if User.objects.filter(email=email).exists():
-        return JsonResponse({"error": "Email already exists"}, status=400)
+        return HttpResponseBadRequest(f"{email} email already in use")
 
-    User.objects.create_user(
+    user = User.objects.create_user(
         username=username,
         email=email,
         password=password
     )
+    
+    login(request, user)
 
-    return JsonResponse({"success": True}, status=201)
+    return HttpResponse("success", status = 201)
 
-
-def current_time(request):
-    return HttpResponse(f"Current time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-
-def sum_numbers(request):
-    return render(request, 'app/sum.html')
-
-# New endpoints for the test
-
+# endpoints for testing
 def uploads(request):
     """Returns 200 for normal users, 403 for curators"""
     # Check if user is a curator (you'll need to define what makes a curator)
     # For now, let's assume users with 'curator' in their email are curators
     if not request.user.is_authenticated:
-        return HttpResponse("Unauthorized", status=401)
+        return HttpResponse("Unauthorized")
     if request.user.is_curator:
-        return HttpResponse("Forbidden", status=403)
+        return HttpResponse("Forbidden")
 
     # 3️⃣ Otherwise (harvester) → show page
     return render(request, "uploads.html")
@@ -74,7 +76,7 @@ def uploads(request):
 def dump_uploads(request):
     """Returns JSON data about uploads"""
     if not request.user.is_authenticated:
-        return JsonResponse({'error': 'Not authenticated'}, status=401)
+        return HttpResponse('Not authenticated')
     
     # Mock data for now
     data = {
@@ -83,32 +85,4 @@ def dump_uploads(request):
             {'id': 2, 'filename': 'test2.txt', 'user': request.user.email},
         ]
     }
-    return JsonResponse(data)
-
-def dump_data(request):
-    if not request.user.is_authenticated:
-        return JsonResponse({"error": "Unauthorized"}, status=401)
-
-    # ONLY curator allowed
-    if not request.user.is_curator:
-        return JsonResponse({"error": "Forbidden"}, status=403)
-
-    return JsonResponse({"data": "some data"}, status=200)
-
-def knock_knock(request):
-    """Returns a knock-knock joke"""
-    topic = request.GET.get('topic', '')
-    
-    jokes = {
-        'avocado': "Avocado who? Avocado nice day, would you like to go out?",
-        'lettuce': "Lettuce who? Lettuce in, it's cold out here!",
-        'orange': "Orange who? Orange you glad I didn't say banana?",
-    }
-    
-    if topic and topic in jokes:
-        joke = f"Knock knock\nWho's there?\n{topic.capitalize()}\n{topic.capitalize()} who?\n{jokes[topic]}"
-    else:
-        # Default joke
-        joke = "Knock knock\nWho's there?\nOlive\nOlive who?\nOlive you and I miss you!"
-    
-    return HttpResponse(joke, content_type='text/plain')
+    return HttpResponse(data)

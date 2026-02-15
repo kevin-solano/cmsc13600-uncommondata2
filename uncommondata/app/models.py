@@ -1,22 +1,15 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.conf import settings
 # Create your models here.
 
 class UserProfile(models.Model):
-    HARVESTER = "harvester"
-    CURATOR = "curator"
-    
-    ROLE_CHOICES = [
-        (HARVESTER, "Harvester"),
-        (CURATOR, "Curator"),
-    ]
-    
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    role = models.CharField(max_length = 20, choices = ROLE_CHOICES)
+    is_curator = models.BooleanField(default=False)
     
     def __str__(self):
-        return f"{self.user.username} ({self.role})"
-    
+        return f"{self.user.username}  - curator = ({self.is_curator})"
+
 class Institution(models.Model):
     name = models.CharField(max_length= 255, unique = True)
     
@@ -41,7 +34,6 @@ class Upload(models.Model):
     def __str__(self):
         return f"{self.institution} {self.reporting_year} ({self.uploader})"
 
-
 class Facts(models.Model):
     institution = models.ForeignKey(Institution, on_delete= models.CASCADE)
     reporting_year = models.ForeignKey(ReportingYear, on_delete= models.CASCADE)
@@ -51,7 +43,6 @@ class Facts(models.Model):
     
     updated_at = models.DateTimeField(auto_now = True)
     updated_by = models.ForeignKey(User, on_delete= models.SET_NULL, null = True, blank = True)
-    
     class Constraint:
         unique_combo = ("institution", "reporting year", "key")
         
@@ -70,4 +61,3 @@ class DatabaseHistory(models.Model):
     
     def __str__(self):
         return f"History for {self.db.key} at {self.changed_at}"
-

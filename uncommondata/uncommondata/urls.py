@@ -16,18 +16,19 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
-from . import views
-from django.views.generic import TemplateView
+from app import views
 from django.contrib.auth import views as auth_views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('app/', include('app.urls')),
-    path("dummypage", views.dummypage, name="index"),
+    path("accounts/", include("django.contrib.auth.urls")),
+    
     path("app/time", views.app_time),
     path('app/sum', views.app_sum),
+    
     path('accounts/login/', auth_views.LoginView.as_view(template_name='registration/login.html'), name='login'),
-    path('', TemplateView.as_view(template_name='index.html'), name='home'),
-    path('index.html', TemplateView.as_view(template_name='index.html'), name='index_html'),
-    path('accounts/logout/', auth_views.LogoutView.as_view(next_page='/'), name='logout'),
+    path('', views.hello_xyz, name='index'),
+    path('index.html', views.hello_xyz, name='index_html'),
+    path('accounts/logout/', auth_views.LogoutView.as_view(template_name='registration/logout.html'), name='logout'),
 ]
