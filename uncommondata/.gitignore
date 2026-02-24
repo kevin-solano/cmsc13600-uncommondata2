@@ -5,6 +5,5 @@ __pycache__/
 venv/
 .env/
 # Django
-db.sqlite3
 # OS
 .DS_Store
