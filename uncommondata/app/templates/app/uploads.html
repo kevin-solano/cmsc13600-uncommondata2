@@ -4,20 +4,35 @@
     <title>Uploads</title>
 </head>
 <body>
-    <h1>Uploads Page</h1>
-    <p>Welcome, {{ user.email }}!</p>
-    <p>This page is for uploading files.</p>
+
+<h1>Your Uploads</h1>
+
+<ul>
+    {% for upload in uploads %}
+        <li>
+            {{ upload.institution }} ({{ upload.year }})
+        </li>
+    {% endfor %}
+</ul>
+
+<hr>
+
+<h2>New Upload</h2>
+
+<form action="/app/api/upload/" method="post" enctype="multipart/form-data">
+    {% csrf_token %}
     
-    <form method="post" enctype="multipart/form-data">
-        {% csrf_token %}
-        <input type="file" name="file">
-        <button type="submit">Upload</button>
-    </form>
-    
-    <h2>Recent Uploads</h2>
-    <ul>
-        <li>sample1.txt - Uploaded just now</li>
-        <li>sample2.txt - Uploaded yesterday</li>
-    </ul>
+    <label>Institution:</label>
+    <input type="text" name="institution" required><br><br>
+
+    <label>Year:</label>
+    <input type="text" name="year" required><br><br>
+
+    <label>File:</label>
+    <input type="file" name="file" required><br><br>
+
+    <button type="submit">Upload</button>
+</form>
+
 </body>
 </html>

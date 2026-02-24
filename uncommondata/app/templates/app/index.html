@@ -36,8 +36,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>Welcome to Data 13600</h1>
-        
+        <h1>Welcome!</h1>
         <div class="user-info">
             {% if user.is_authenticated %}
                 <p>Logged in as: <strong>{{ user.email }}</strong></p>
@@ -45,26 +44,37 @@
                 <p>Not logged in</p>
             {% endif %}
         </div>
-        
         <div class="time">
             Current time: {% now "H:i " %}
         </div>
-        
         <div class="bio">
             <p>This is a simple Django application for managing users.</p>
-            <p>You can create new accounts and log in to access more features.</p>
+            <p>Create an account and log in to access more features.</p>
         </div>
         
-        <div class="links">
+        <div class="links" style="margin-top: 25px;">
+            <hr style="margin: 20px 0;">
+            
+            <h3>Navigation</h3>
+            
+            <a href="/app/api/knock-knock/">Knock Knock</a>
+            <br><br>
+
             {% if user.is_authenticated %}
-        <form method="post" action="/accounts/logout/" style="display: inline;">
-            {% csrf_token %}
-            <button type="submit" style="background: none; border: none; color: blue; text-decoration: underline; cursor: pointer;">Logout</button>
-        </form>
-    {% else %}
-        <a href="/accounts/login/">Login</a> | 
-        <a href="/app/new/">Create Account</a>
-    {% endif %}
+                <a href="/app/uploads/">Uploads</a> |
+                <a href="/app/api/dump-uploads/">Dump Uploads</a> |
+                <a href="/app/api/dump-data/">Dump Data</a> |
+                <form method="post" action="/accounts/logout/" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit"
+                        style="background: none; border: none; color: blue; text-decoration: underline; cursor: pointer;">
+                        Logout
+                    </button>
+                </form>
+            {% else %}
+                <a href="/accounts/login/">Login</a> | 
+                <a href="/app/new/">Create Account</a> |
+            {% endif %}
         </div>
     </div>
 </body>

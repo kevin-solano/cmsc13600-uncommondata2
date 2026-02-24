@@ -1,3 +1,22 @@
+What are the files for?
+
+./uncommondata
+./uncommondata/asgi.py                 # server service code
+./uncommondata/__init__.py
+./uncommondata/settings.py             # top-level "project" settings 
+./uncommondata/urls.py                 # top-level urls.py, includes app/urls.py
+./uncommondata/wsgi.py                 # server service code
+./app
+./app/migrations
+./app/migrations/__init__.py       
+./app/migrations/0001_initial.py   # internal-to-django, data on DDL
+./app/models.py                    # Your DDL definitions
+./app/__init__.py
+./app/urls.py                      # Your code to specify which endpoints
+./app/views.py                     # Your code to talk to server, db
+./db.sqlite3                       # binary storing user table + app data
+./manage.py                        # Django main control script (along with django-admin)
+
 auth_group
 auth_user_user_permissions
 auth_group_permissions
@@ -8,5 +27,7 @@ auth_user
 django_migrations
 auth_user_groups
 django_session
-
 "used .tables in sqlite>"
+
+The __init__.py file has python incldue subdirectories and files within subdirectories using import statements.
+

@@ -20,15 +20,14 @@ from app import views
 from django.contrib.auth import views as auth_views
 
 urlpatterns = [
+    # --> Django admin panel
     path('admin/', admin.site.urls),
-    path('app/', include('app.urls')),
-    path("accounts/", include("django.contrib.auth.urls")),
-    
-    path("app/time", views.app_time),
-    path('app/sum', views.app_sum),
-    
-    path('accounts/login/', auth_views.LoginView.as_view(template_name='registration/login.html'), name='login'),
-    path('', views.hello_xyz, name='index'),
-    path('index.html', views.hello_xyz, name='index_html'),
-    path('accounts/logout/', auth_views.LogoutView.as_view(template_name='registration/logout.html'), name='logout'),
+    # connects /app/ to app/urls.py
+    path("app/", include("app.urls")),
+    # homepage: / and /index.html
+    path('', views.index, name='index'),
+    path('index.html', views.index, name='index_html'),
+    # accounts login and logout
+    path('accounts/login/', auth_views.LoginView.as_view(), name='login'),
+    path('accounts/logout/', auth_views.LogoutView.as_view(), name='logout'),
 ]
