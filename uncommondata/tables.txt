@@ -14,6 +14,7 @@ What are the files for?
 ./app/__init__.py
 ./app/urls.py                      # Your code to specify which endpoints
 ./app/views.py                     # Your code to talk to server, db
+
 ./db.sqlite3                       # binary storing user table + app data
 ./manage.py                        # Django main control script (along with django-admin)
 
@@ -29,5 +30,4 @@ auth_user_groups
 django_session
 "used .tables in sqlite>"
 
-The __init__.py file has python incldue subdirectories and files within subdirectories using import statements.
-
+The __init__.py file has python include subdirectories and files within subdirectories using import statements.

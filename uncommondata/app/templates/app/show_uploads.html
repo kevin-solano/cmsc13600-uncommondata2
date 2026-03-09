@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head><title>Uploads</title></head>
+<body>
+  <h1>Uploads</h1>
+  <table border="1">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Filename</th>
+        <th>User</th>
+        <th>Uploaded At</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for upload in uploads %}
+      <tr>
+        <td>{{ upload.id|truncatechars:12 }}</td>
+        <td>{{ upload.filename }}</td>
+        <td>{{ upload.user.username }}</td>
+        <td>{{ upload.uploaded_at }}</td>
+        <td>
+          <a href="/app/api/download/{{ upload.id }}">Download</a> |
+          <a href="/app/api/process/{{ upload.id }}">Process</a> |
+          <a href="/app/api/submit/{{ upload.id }}">Submit</a>
+        </td>
+      </tr>
+      {% empty %}
+        <tr><td colspan="5">No uploads found.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</body>
+</html>

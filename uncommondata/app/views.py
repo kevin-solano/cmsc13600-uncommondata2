@@ -1,16 +1,18 @@
 from django.shortcuts import render
-from django.http import HttpResponse, HttpResponseNotAllowed, HttpResponseForbidden, HttpResponseBadRequest, JsonResponse
+from django.http import HttpResponse, HttpResponseNotAllowed, HttpResponseForbidden, HttpResponseBadRequest, JsonResponse, HttpResponseRedirect
+from django.contrib.auth import login
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.models import User
-from django.contrib.auth import login
-from django.contrib.auth.decorators import login_required
 from datetime import datetime
 from zoneinfo import ZoneInfo
-from django.conf import settings
 from openai import OpenAI
+from django.conf import settings
 from .models import Upload, Institution, ReportingYear, Facts, UserProfile
-# Create your views here.
+import subprocess
+import os
 
+# create views here
+# HW 1 - 3?
 def index(request):
     time_now = datetime.now().strftime('%Y-%m-%d %H:%M')
     return render(request, 'app/index.html', {'Current Time': time_now})
@@ -26,38 +28,36 @@ def app_time(request):
 def app_sum(request):
     n1 = request.GET.get("n1", "0")
     n2 = request.GET.get("n2", "0")
-    
     try: 
         result = float(n1) + float(n2)
     except ValueError:
         return HttpResponse("Invalid input")
-    
     if result.is_integer():
         return HttpResponse(str(int(result)))
 
     return HttpResponse(str(result))
 
+########## HW 4 ##########
 def new_user(request):
+    "redirect to URL where new user can submit new user creation form"
     if request.method != 'GET':
         return HttpResponseNotAllowed(['GET'])
     return render(request, 'app/new.html')    
 
-def app_time(request):
-    now_cst = datetime.now(ZoneInfo("America/Chicago"))
-    return HttpResponse(now_cst.strftime("%H:%M"))
-
 @csrf_exempt
 def create_user(request):
+    "fucntion to create a new user account, all proper info submitted"
     if request.method != 'POST':
-        return HttpResponseNotAllowed(["POST required"])
+        return JsonResponse({"error": "POST required"}, status=400)
 
     username = request.POST.get("user_name")
     password = request.POST.get("password")
     email = request.POST.get("email")
-    is_curator_true = request.POST.get("is_curator")
+    is_curator_true = True if str(request.POST.get("is_curator")).lower() in ["true", "1"] else False
 
-    if not username or not password or not email or is_curator_true is None:
+    if not username or not password or not email:
         return HttpResponseBadRequest("missing fields")
+    
     # duplicate email
     if User.objects.filter(email=email).exists():
         return HttpResponseBadRequest(f"{email} email already in use")
@@ -69,14 +69,22 @@ def create_user(request):
                                     email=email,
                                     password=password)
     
+    UserProfile.objects.get_or_create(user=user, defaults={"is_curator": is_curator_true})
+        
     login(request, user)
 
     return HttpResponse("success", status = 201)
 
-##### HW5 ####
+######################### HW5 ###################################
 
-@login_required
-def uploads_page(request):
+def uploads(request):
+    
+    if not request.user.is_authenticated:
+        return HttpResponse(status=401, content="Authentication required")
+    
+    if request.user.userprofile.is_curator:
+        return HttpResponse(status=403, content="Forbidden if logged in as curator")
+    
     uploads = Upload.objects.filter(uploader=request.user)
     return render(request, "app/uploads.html", {"uploads": uploads})
 
@@ -107,16 +115,20 @@ def api_upload(request):
     })
 
 def dump_uploads(request):
+    
+    if not request.user.is_authenticated:
+        return HttpResponse(status=401, content="Authentication required")
+    
     try:
         profile = request.user.userprofile
         is_curator = profile.is_curator
-        
     except UserProfile.DoesNotExist:
         is_curator = False
     
+    
+    # Curators see all uploads, regular users see only their own
     if is_curator:
         uploads = Upload.objects.all()
-    
     else:
         uploads = Upload.objects.filter(uploader=request.user)
     
@@ -134,46 +146,80 @@ def dump_uploads(request):
 
 def dump_data(request):
     
-    if UserProfile.DoesNotExist:
-        return HttpResponseForbidden("401 Forbidden")
-    try:
-        profile = request.user.userprofile
-        if not profile.is_curator:
-            return HttpResponseForbidden("403 Forbidden")
-    except UserProfile.DoesNotExist:
-        return HttpResponseForbidden("401 Forbidden")
+    if not request.user.is_authenticated:
+        return HttpResponse(status=401, content="Authentication required")
+    
+    if not request.user.userprofile.is_curator:
+        return HttpResponse(status=403)
 
     facts = Facts.objects.all()
 
     data = {}
     
     for fact in facts:
-        data[str(fact.id)] = {"institution": fact.institution.name,
-                              "year": fact.reporting_year.year,
-                              "key": fact.key,
-                              "value": fact.value,
-                              "updated_at": fact.updated_at,
-                              "updated_by": fact.updated_by.username if fact.updated_by else None,
+        data[str(fact.id)] = {
+            "institution": fact.institution.name,
+            "year": fact.reporting_year.year,
+            "key": fact.key,
+            "value": fact.value,
+            "updated_at": fact.updated_at,
+            "updated_by": fact.updated_by.username if fact.updated_by else None,
     }
 
     return JsonResponse(data)
 
 def knock_knock(request):
+    "uses AI to generate a joke"
     topic = request.GET.get("topic", "banana")[:20]
 
     try:
         client = OpenAI(api_key= settings.OPENAI_API_KEY)
-
-        response = client.chat.completions.create(model="gpt-4o-mini",
-                                                  messages= [{
-                                                      "role": "user",
-                                                      "content": f"Tell a short knock knock joke about {topic}."
-                                                      }],
-                                                  timeout=30,)
-        joke = response.choices[0].message.content
-
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages= [{"role": "user",
+                        "content": f"Tell a short knock knock joke about {topic}. Make sure the word '{topic}' appears in the joke."
+                        }],
+            timeout= 30,
+        )
+        joke = response.choices[0].message.content.strip()
     except Exception as e:
         print("OPENAI ERROR:", e)
-        joke = ("Knock, knock. Who’s there? Lettuce. Lettuce who? Lettuce in, it's cold out here!")
+        joke = f"Knock knock. Who's there? {topic}. {topic} who? {topic} jokes are the best!"
+    return HttpResponse(joke)
 
-    return JsonResponse({"joke": joke})
+##### HW 6 #####
+def frontend(request):
+    """end point that extracts data from specified file
+    and submits to table of facts"""
+    ...
+    
+############# HW 7 ##################
+def pdf_to_text(filename):
+    """
+    Run the shell command `pdftotext` on `filename`,
+    producing `filename + ".txt"` and returning that name.
+    """
+    if not os.path.isfile(filename):
+        raise FileNotFoundError(f"Input file not found: {filename}")
+
+    output_filename = filename + ".txt"
+
+    try:
+        subprocess.run(
+            ["pdftotext", "-layout", filename,
+            output_filename], check=True,
+        )
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"pdftotext failed with exit code {e.returncode}") from e
+
+    return output_filename
+
+
+def show_uploads(request):
+    "end point that extracts data from specified file and submits to table of facts"
+    if request.user.profile.role == "curator":
+        uploads = Upload.objects.all()
+    else:
+        uploads = Upload.objects.filter(user=request.user)
+    
+    return render(request, "show_uploads.html", {"uploads": uploads})

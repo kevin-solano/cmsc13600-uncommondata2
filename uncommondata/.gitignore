@@ -1,9 +1,12 @@
 # Python
-__pycache__/
+.pytest_cache
+__pycache__
 *.pyc
 # Virtual environments
 venv/
-.env/
-# Django
 # OS
 .DS_Store
+autograders
+test_hw7.py
+test_hw5.py
+test_uploads_auth.py
