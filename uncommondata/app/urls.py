@@ -24,9 +24,9 @@ urlpatterns = [
     # curator inspection of Facts table
     path('api/dump-data/', views.dump_data, name='dump_data'),
     # HTML list of already uploaded files
-    path('api/show-uploads/', views.show_uploads, name='show_uploads'),
+    path('api/show-uploads/', views.show_uploads),
     # GET: file download
-    path('api/download/{ID}', views.show_uploads, name='download'),
+    path('api/download/{ID}/', views.api_download),
     # GET endpoint: data extraction, return extracted data as JSOn
-    path('/api/process/{ID}', views.show_uploads, name= 'process'),
+    path('api/process/{ID}/', views.api_process),
 ]

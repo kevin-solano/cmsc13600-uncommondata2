@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from django.http import HttpResponse, HttpResponseNotAllowed, HttpResponseForbidden, HttpResponseBadRequest, JsonResponse, HttpResponseRedirect
+from django.http import HttpResponse, HttpResponseNotAllowed, HttpResponseBadRequest, JsonResponse, FileResponse
 from django.contrib.auth import login
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.models import User
@@ -125,7 +125,6 @@ def dump_uploads(request):
     except UserProfile.DoesNotExist:
         is_curator = False
     
-    
     # Curators see all uploads, regular users see only their own
     if is_curator:
         uploads = Upload.objects.all()
@@ -216,10 +215,39 @@ def pdf_to_text(filename):
 
 
 def show_uploads(request):
-    "end point that extracts data from specified file and submits to table of facts"
-    if request.user.profile.role == "curator":
-        uploads = Upload.objects.all()
-    else:
-        uploads = Upload.objects.filter(user=request.user)
+    ""
+    uploads = Upload.objects.all()
+
+    html = "<h1>Uploaded Files</h1><ul>"
+
+    for upload in uploads:
+        html += f"""
+        <li>
+            {upload.file.name}
+            <a href="/app/api/download/{upload.id}">Download</a>
+            <a href="/app/api/process/{upload.id}">Process</a>
+        </li>
+        """
+
+    html += "</ul>"
+
+    return HttpResponse(html)
+
+def api_download(request, id):
+    """1. lookup the uploaded file using the ID
+    2. return the file so the user can download it"""
+    upload = Upload.objects.get(id=id)
+    return FileResponse(upload.file.open(), as_attachment=True)
     
-    return render(request, "show_uploads.html", {"uploads": uploads})
+
+def api_process(request):
+    """1. lookup the uploaded file using the ID
+    2. return the file so the user can download it"""
+    upload = Upload.objects.get(id=id)
+
+    extracted_data = {
+        "filename": upload.file.name,
+        "size": upload.file.size
+    }
+
+    return JsonResponse(extracted_data)
