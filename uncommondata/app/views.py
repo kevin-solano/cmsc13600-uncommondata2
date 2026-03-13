@@ -161,31 +161,9 @@ def knock_knock(request):
         print("OPENAI ERROR:", e)
         joke = f"Knock knock. Who's there? {topic}. {topic} who? {topic} jokes are the best!"
     return HttpResponse(joke)
+    
+################# HW 7 ##################
 
-##### HW 6 #####
-"""def frontend(request):
-    "end point that extracts data from specified file
-    and submits to table of facts"
-    if not request.user.is_authenticated:
-        return HttpResponse(status=401, content="Authentication required")
-    
-    if request.user.userprofile.is_curator:
-        return HttpResponse(status=403, content="Forbidden if logged in as curator")
-    
-    sha256 = hashlib.sha256()
-    for chunk in file.chunks():
-        sha256.update(chunk)
-        
-    filehash = sha256.hexdigest()
-    upload = Upload.objects.create(
-    uploader=request.user,
-    institution= institution,
-    reporting_year= reporting_year,
-    file= file,
-    hash= filehash
-)"""
-    
-############# HW 7 ##################
 def pdf_to_text(filename):
     """
     Run the shell command `pdftotext` on `filename`,
@@ -206,6 +184,31 @@ def pdf_to_text(filename):
 
     return output_filename
 
+def extract_institution_from_filename(filename):
+    """Simple but effective institution extraction"""
+    
+    # First check for common abbreviations
+    abbr_match = re.search(r"\b(UIC|EIU|UIUC|ISU|NIU|SIU|WIU)\b", filename, re.IGNORECASE)
+    if abbr_match:
+        return abbr_match.group(1).upper()
+    
+    # Then check for "University of X" pattern
+    uni_of_match = re.search(r"University\s+of\s+([A-Za-z\s]+?)(?=\s|_|-|\.|$)", filename, re.IGNORECASE)
+    if uni_of_match:
+        return f"University of {uni_of_match.group(1).strip()}"
+    
+    # Check for "X University" pattern
+    x_uni_match = re.search(r"([A-Za-z\s]+?)\s+University(?=\s|_|-|\.|$)", filename, re.IGNORECASE)
+    if x_uni_match:
+        return f"{x_uni_match.group(1).strip()} University"
+    
+    # Check for college patterns
+    college_match = re.search(r"(College\s+of\s+[A-Za-z\s]+|[A-Za-z\s]+\s+College)", filename, re.IGNORECASE)
+    if college_match:
+        return college_match.group(0)
+    
+    return "UNKNOWN"
+
 @csrf_exempt
 def api_upload(request):
     """..."""
@@ -225,37 +228,33 @@ def api_upload(request):
         return JsonResponse({"error": "missing file"}, status=400)
     
     file = request.FILES["file"]
-    
-    file_bytes = file.read()
-    filehash = hashlib.sha256(file_bytes).hexdigest()
     filename = file.name
+    
+    sha256 = hashlib.sha256()
+    for chunk in file.chunks():
+        sha256.update(chunk)
+
+    filehash = sha256.hexdigest()
     file.seek(0)
 
-    inst_match = re.search(r"(UIC|EIU)", filename)
-    institution_name = inst_match.group(1) if inst_match else "UNKNOWN"
+    institution_name = extract_institution_from_filename(filename)
     
     year_match = re.search(r"(20\d{2})", filename)
-    year_value = year_match.group(1) if year_match else 0000
-    
+    year_value = int(year_match.group(1)) if year_match else 0
     
     institution, _ = Institution.objects.get_or_create(name=institution_name)
     reporting_year, _ = ReportingYear.objects.get_or_create(year=year_value)
     
     existing_upload = Upload.objects.filter(hash=filehash).first()
     if existing_upload:
-        return JsonResponse({
-            "id": existing_upload.hash,
-            "note": "Using existing upload"
-        }, status=200)
+        return JsonResponse({"id": existing_upload.hash}, status=200)
     
-    upload = Upload(uploader=request.user,
+    upload = Upload.objects.create(uploader=request.user,
                                    institution=institution,
                                    reporting_year=reporting_year,
                                    file=file,
                                    hash=filehash)
-    
-    upload.file.save(filename, file, save=True)
-    
+        
     return JsonResponse({"id": upload.hash}, status=201)
 
 def api_download(request, ID):
@@ -274,14 +273,9 @@ def api_download(request, ID):
     is_curator = getattr(request.user.userprofile, 'is_curator', False)
     if not (is_curator or upload.uploader == request.user):
         return HttpResponse(status=403, content="Forbidden if logged in as curator")
-    
-    response = FileResponse(
-            upload.file.open('rb'),
-            as_attachment=True,
-            filename=os.path.basename(upload.file.name)
-        )
-    return response
-    
+
+    return FileResponse(upload.file.open('rb'),as_attachment=True)
+
 
 def api_process(request, ID):
     """1. lookup the uploaded file using the ID
@@ -289,14 +283,19 @@ def api_process(request, ID):
     
     upload = get_object_or_404(Upload, hash=ID)
     
-    pdf_path = upload.file.path
-
-    txt_path = pdf_to_text(pdf_path)
+    txtfile = pdf_to_text(upload.file.path)
     
-    with open(txt_path, "r") as f:
+    with open(txtfile) as f:
         text = f.read()
-
-    extracted_data = {"institution": upload.institution.name,
-                      "reporting_year": upload.reporting_year.year,
-                      "text_length": len(text)}
+        
+    data = {}
+        
+        
+    extracted_data = {
+        "institution": upload.institution.name,
+        "reporting_year": upload.reporting_year.year,
+    }
+    
+    extracted_data.update(data)
     return JsonResponse(extracted_data)
+
