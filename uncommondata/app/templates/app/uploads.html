@@ -22,12 +22,6 @@
 
 <form action="/app/api/upload/" method="post" enctype="multipart/form-data">
     {% csrf_token %}
-    
-    <label>Institution:</label>
-    <input type="text" name="institution" required><br><br>
-
-    <label>Year:</label>
-    <input type="text" name="year" required><br><br>
 
     <label>File:</label>
     <input type="file" name="file" required><br><br>

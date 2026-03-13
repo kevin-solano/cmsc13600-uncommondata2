@@ -27,7 +27,9 @@ class Upload(models.Model):
     institution = models.ForeignKey(Institution, on_delete=models.CASCADE)
     reporting_year = models.ForeignKey(ReportingYear, on_delete=models.CASCADE)
     
-    file = models.FileField(upload_to = "uploads/")
+    file = models.FileField(upload_to= "uploads/")
+    
+    hash = models.CharField(max_length=64, unique=True)
     
     uploaded_at = models.DateTimeField(auto_now_add = True)
     
@@ -43,8 +45,11 @@ class Facts(models.Model):
     
     updated_at = models.DateTimeField(auto_now = True)
     updated_by = models.ForeignKey(User, on_delete= models.SET_NULL, null = True, blank = True)
+
     class Constraint:
-        unique_combo = ("institution", "reporting year", "key")
+        constraints = [models.UniqueConstraint(
+            fields=["institution", "reporting_year", "key"],
+            name="unique_fact")]
         
     def __str__(self):
         return f"{self.institution} {self.reporting_year}: {self.key}"

@@ -1,4 +1,4 @@
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from django.http import HttpResponse, HttpResponseNotAllowed, HttpResponseBadRequest, JsonResponse, FileResponse
 from django.contrib.auth import login
 from django.views.decorators.csrf import csrf_exempt
@@ -10,6 +10,8 @@ from django.conf import settings
 from .models import Upload, Institution, ReportingYear, Facts, UserProfile
 import subprocess
 import os
+import hashlib
+import re
 
 # create views here
 # HW 1 - 3?
@@ -88,32 +90,6 @@ def uploads(request):
     uploads = Upload.objects.filter(uploader=request.user)
     return render(request, "app/uploads.html", {"uploads": uploads})
 
-#api upload
-@csrf_exempt
-def api_upload(request):
-    if request.method != "POST":
-        return HttpResponse("error: POST required", status=400)
-
-    institution_name = request.POST.get("institution")
-    year_value = request.POST.get("year")
-    file = request.FILES.get("file")
-    
-    if not institution_name or not year_value or not file:
-        return HttpResponse("error: Missing required fields", status=400)
-    
-    institution, _ = Institution.objects.get_or_create(name=institution_name)
-    reporting_year, _ = ReportingYear.objects.get_or_create(year=year_value)
-
-    upload = Upload.objects.create(uploader=request.user,
-                                   institution=institution,
-                                   reporting_year=reporting_year,
-                                   file=file,
-    )
-    return JsonResponse({
-        "success": True,
-        "upload_id": upload.id
-    })
-
 def dump_uploads(request):
     
     if not request.user.is_authenticated:
@@ -131,17 +107,17 @@ def dump_uploads(request):
     else:
         uploads = Upload.objects.filter(uploader=request.user)
     
-    data = {}
+    data = []
 
-    for upload in uploads:
-        data[str(upload.id)] = {
-            "user": upload.uploader.username,
-            "institution": upload.institution.name,
-            "year": upload.reporting_year.year,
-            "file": upload.file.name.split("/")[-1] if upload.file else None,
-        }
+    for u in uploads:
+        data.append({
+            "institution": u.institution.name,
+            "reporting_year": u.reporting_year.year,
+            "hash": u.hash,
+            "filename": u.file.name
+        })
 
-    return JsonResponse(data)
+    return JsonResponse({"uploads": data})
 
 def dump_data(request):
     
@@ -187,10 +163,27 @@ def knock_knock(request):
     return HttpResponse(joke)
 
 ##### HW 6 #####
-def frontend(request):
-    """end point that extracts data from specified file
-    and submits to table of facts"""
-    ...
+"""def frontend(request):
+    "end point that extracts data from specified file
+    and submits to table of facts"
+    if not request.user.is_authenticated:
+        return HttpResponse(status=401, content="Authentication required")
+    
+    if request.user.userprofile.is_curator:
+        return HttpResponse(status=403, content="Forbidden if logged in as curator")
+    
+    sha256 = hashlib.sha256()
+    for chunk in file.chunks():
+        sha256.update(chunk)
+        
+    filehash = sha256.hexdigest()
+    upload = Upload.objects.create(
+    uploader=request.user,
+    institution= institution,
+    reporting_year= reporting_year,
+    file= file,
+    hash= filehash
+)"""
     
 ############# HW 7 ##################
 def pdf_to_text(filename):
@@ -213,41 +206,97 @@ def pdf_to_text(filename):
 
     return output_filename
 
+@csrf_exempt
+def api_upload(request):
+    """..."""
+    if request.method != 'POST':
+        return JsonResponse({"error": "POST required"}, status=400)
+    
+    if not request.user.is_authenticated:
+        return HttpResponse(status=401, content="Authentication required")
+    
+    try:
+        if request.user.userprofile.is_curator:
+            return HttpResponse(status=403, content="Forbidden if logged in as curator")
+    except (UserProfile.DoesNotExist, AttributeError):
+        pass
+    
+    if "file" not in request.FILES:
+        return JsonResponse({"error": "missing file"}, status=400)
+    
+    file = request.FILES["file"]
+    
+    file_bytes = file.read()
+    filehash = hashlib.sha256(file_bytes).hexdigest()
+    filename = file.name
+    file.seek(0)
 
-def show_uploads(request):
-    ""
-    uploads = Upload.objects.all()
+    inst_match = re.search(r"(UIC|EIU)", filename)
+    institution_name = inst_match.group(1) if inst_match else "UNKNOWN"
+    
+    year_match = re.search(r"(20\d{2})", filename)
+    year_value = year_match.group(1) if year_match else 0000
+    
+    
+    institution, _ = Institution.objects.get_or_create(name=institution_name)
+    reporting_year, _ = ReportingYear.objects.get_or_create(year=year_value)
+    
+    existing_upload = Upload.objects.filter(hash=filehash).first()
+    if existing_upload:
+        return JsonResponse({
+            "id": existing_upload.hash,
+            "note": "Using existing upload"
+        }, status=200)
+    
+    upload = Upload(uploader=request.user,
+                                   institution=institution,
+                                   reporting_year=reporting_year,
+                                   file=file,
+                                   hash=filehash)
+    
+    upload.file.save(filename, file, save=True)
+    
+    return JsonResponse({"id": upload.hash}, status=201)
 
-    html = "<h1>Uploaded Files</h1><ul>"
-
-    for upload in uploads:
-        html += f"""
-        <li>
-            {upload.file.name}
-            <a href="/app/api/download/{upload.id}">Download</a>
-            <a href="/app/api/process/{upload.id}">Process</a>
-        </li>
-        """
-
-    html += "</ul>"
-
-    return HttpResponse(html)
-
-def api_download(request, id):
+def api_download(request, ID):
     """1. lookup the uploaded file using the ID
     2. return the file so the user can download it"""
-    upload = Upload.objects.get(id=id)
-    return FileResponse(upload.file.open(), as_attachment=True)
+    
+    try:
+        upload = get_object_or_404(Upload, hash=ID)
+    except Upload.DoesNotExist:
+        return JsonResponse({"error": "Upload not found"}, status=404)
+    
+    
+    if not request.user.is_authenticated:
+        return HttpResponse(status=401, content="Authentication required")
+    
+    is_curator = getattr(request.user.userprofile, 'is_curator', False)
+    if not (is_curator or upload.uploader == request.user):
+        return HttpResponse(status=403, content="Forbidden if logged in as curator")
+    
+    response = FileResponse(
+            upload.file.open('rb'),
+            as_attachment=True,
+            filename=os.path.basename(upload.file.name)
+        )
+    return response
     
 
-def api_process(request):
+def api_process(request, ID):
     """1. lookup the uploaded file using the ID
     2. return the file so the user can download it"""
-    upload = Upload.objects.get(id=id)
+    
+    upload = get_object_or_404(Upload, hash=ID)
+    
+    pdf_path = upload.file.path
 
-    extracted_data = {
-        "filename": upload.file.name,
-        "size": upload.file.size
-    }
+    txt_path = pdf_to_text(pdf_path)
+    
+    with open(txt_path, "r") as f:
+        text = f.read()
 
+    extracted_data = {"institution": upload.institution.name,
+                      "reporting_year": upload.reporting_year.year,
+                      "text_length": len(text)}
     return JsonResponse(extracted_data)
